@@ -28,11 +28,11 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     
     <!-- React -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin=""></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin=""></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin="" data-cfasync="false"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin="" data-cfasync="false"></script>
     
     <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin=""></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin="" data-cfasync="false"></script>
     
     <!-- Utilities -->
     <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js" crossorigin=""></script>
@@ -62,7 +62,7 @@
     <div id="root"></div>
 
     <!-- Main Application Script -->
-    <script type="text/babel" data-presets="react">
+    <script type="text/babel" data-presets="react" data-cfasync="false">
         window.ReactAppStarted = true;
         
         console.log("Babel: Started processing script...");
@@ -433,7 +433,7 @@
     </script>
 
     <!-- KICKSTARTER: Manual Babel Trigger -->
-    <script>
+    <script data-cfasync="false">
         window.addEventListener('load', function() {
             setTimeout(function() {
                 if (!window.ReactAppStarted) {
