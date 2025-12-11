@@ -3,110 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Permissive CSP to allow loading content from CDNs and GitHub on strict hosts -->
+    <!-- Very Permissive CSP for troubleshooting -->
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
     <title>Tucson LED Conversion Timeline</title>
     
-    <!-- ERROR LOGGER: Prints errors to screen if app fails to load -->
+    <!-- ERROR LOGGER -->
     <script>
         window.onerror = function(msg, url, line, col, error) {
-            const div = document.createElement('div');
-            div.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:20px;z-index:9999;font-family:monospace;border-bottom:2px solid white;';
-            div.innerHTML = '<strong>App Error:</strong> ' + msg + '<br/><small>' + url + ':' + line + '</small>';
-            document.body.appendChild(div);
-            // Don't suppress default error
+            const div = document.getElementById('error-log') || document.createElement('div');
+            div.id = 'error-log';
+            div.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:rgba(200,0,0,0.9);color:white;padding:20px;z-index:9999;font-family:monospace;pointer-events:none;';
+            div.innerHTML += '<div><strong>Error:</strong> ' + msg + '</div>';
+            if(!document.body.contains(div)) document.body.appendChild(div);
             return false;
         };
-        console.log("App script loaded. initializing...");
+        console.log(" Boot: Error logger ready.");
     </script>
 
-    <!-- Tailwind CSS (Play CDN) -->
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     
-    <!-- React & ReactDOM -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <!-- React -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin=""></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin=""></script>
     
-    <!-- Babel (Standalone) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin=""></script>
     
-    <!-- Leaflet JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-    
-    <!-- PapaParse for CSV -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-
-    <!-- Proj4js for Coordinate Conversion -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.10.0/proj4.js"></script>
+    <!-- Utilities -->
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js" crossorigin=""></script>
+    <script src="https://unpkg.com/proj4@2.10.0/dist/proj4.js" crossorigin=""></script>
 
     <style>
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         #root { height: 100vh; display: flex; flex-direction: column; }
         .map-container { flex-grow: 1; width: 100%; z-index: 0; }
-        /* Custom range slider styling */
-        input[type=range] {
-            -webkit-appearance: none;
-            width: 100%;
-            background: transparent;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 20px;
-            width: 20px;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-            margin-top: -8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #e5e7eb;
-            border-radius: 2px;
-        }
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(4px);
-            border: 1px solid rgba(229, 231, 235, 0.5);
-        }
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3b82f6;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        /* Fallback loading message */
-        #fallback-msg {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            font-size: 1.2rem;
-            color: #666;
-            background: #f9fafb;
-        }
+        /* Slider Styling */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -8px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #e5e7eb; border-radius: 2px; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(4px); border: 1px solid rgba(229, 231, 235, 0.5); }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #loading-overlay { position: fixed; inset: 0; background: #f9fafb; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5000; transition: opacity 0.5s; }
     </style>
 </head>
 <body>
-    <div id="root">
-        <div id="fallback-msg">Initializing Application...<br/><span style="font-size:0.8em; margin-top:10px;">(If this message stays, check console for errors)</span></div>
+    <div id="loading-overlay">
+        <div class="loader" style="margin-bottom: 20px;"></div>
+        <div id="loading-text" style="color: #666; font-size: 1.1rem;">Initializing Environment...</div>
+        <div style="margin-top:10px; font-size: 0.8rem; color: #999;">If this takes longer than 5s, check console.</div>
     </div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef, useMemo } = React;
+    <div id="root"></div>
 
-        console.log("React script started executing...");
+    <!-- Main Application Script -->
+    <script type="text/babel" data-presets="react" data-type="module">
+        console.log("Babel: Started processing script...");
+        document.getElementById('loading-text').innerText = "Starting Application...";
+
+        const { useState, useEffect, useRef, useMemo } = React;
 
         const DATA_URL = 'https://raw.githubusercontent.com/ry-li/tucson-led-conversion/refs/heads/main/data/LED_Inst.csv';
         const BOUNDARY_URL = 'https://raw.githubusercontent.com/ry-li/tucson-led-conversion/refs/heads/main/data/Jurisdictional_Boundaries_(JURISBND)_tucson.geojson';
@@ -115,11 +75,11 @@
         // --- Helper: Convert GeoJSON from EPSG:3857 to EPSG:4326 if needed ---
         const transformGeoJSON = (data) => {
             if (!data || !window.proj4) return data;
-
+            // Proj4 definitions
             const source = '+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs';
             const dest = '+proj=longlat +datum=WGS84 +no_defs';
 
-            // Check if transformation is actually needed (Coordinates > 180 imply meters)
+            // Heuristic check
             let needsTransform = false;
             const checkCoords = (coords) => {
                 if (Array.isArray(coords[0])) return checkCoords(coords[0]);
@@ -136,13 +96,10 @@
 
             if (!needsTransform) return data;
 
-            // Recursive function to transform coordinates
+            // Transform
             const transformCoords = (coords) => {
-                if (Array.isArray(coords[0])) {
-                    return coords.map(transformCoords);
-                } else if (coords.length >= 2 && typeof coords[0] === 'number') {
-                    return proj4(source, dest, coords);
-                }
+                if (Array.isArray(coords[0])) return coords.map(transformCoords);
+                if (coords.length >= 2 && typeof coords[0] === 'number') return proj4(source, dest, coords);
                 return coords;
             };
 
@@ -151,40 +108,21 @@
                 if (geometry && geometry.coordinates) geometry.coordinates = transformCoords(geometry.coordinates);
             };
 
-            if (newData.type === 'FeatureCollection') {
-                newData.features.forEach(f => processGeometry(f.geometry));
-            } else if (newData.type === 'Feature') {
-                processGeometry(newData.geometry);
-            } else if (newData.type === 'Polygon' || newData.type === 'MultiPolygon') {
-                processGeometry(newData);
-            }
+            if (newData.type === 'FeatureCollection') newData.features.forEach(f => processGeometry(f.geometry));
+            else if (newData.type === 'Feature') processGeometry(newData.geometry);
+            else if (newData.type === 'Polygon' || newData.type === 'MultiPolygon') processGeometry(newData);
 
             return newData;
         };
 
-        // --- Icons (Inline SVGs) ---
+        // --- Icons ---
         const Icons = {
-            MapPin: ({ className }) => (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                </svg>
-            ),
-            Play: ({ className, fill }) => (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={fill ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            ),
-            Pause: ({ className, fill }) => (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={fill ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-            ),
-            RotateCcw: ({ className }) => (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 2v6h6" /><path d="M3 13a9 9 0 1 0 3-7.7L3 8" /></svg>
-            ),
-            PlayCircle: ({ className }) => (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
-            ),
-            Github: ({ className }) => (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36.5-8 3C6.77 2.16 3.66 1.76 2.5 3c-.5 1.5-.5 3.5 0 3.5A5.5 5.5 0 0 0 0 12c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
-            )
+            MapPin: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>,
+            Play: ({ className, fill }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={fill ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"/></svg>,
+            Pause: ({ className, fill }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={fill ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>,
+            RotateCcw: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 2v6h6" /><path d="M3 13a9 9 0 1 0 3-7.7L3 8" /></svg>,
+            PlayCircle: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>,
+            Github: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36.5-8 3C6.77 2.16 3.66 1.76 2.5 3c-.5 1.5-.5 3.5 0 3.5A5.5 5.5 0 0 0 0 12c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
         };
 
         const formatDateKey = (date, groupBy) => {
@@ -217,7 +155,6 @@
             const [isLoading, setIsLoading] = useState(true);
             const [error, setError] = useState(null);
             
-            // Data States
             const [boundaryData, setBoundaryData] = useState(null);
             const [showBoundary, setShowBoundary] = useState(true);
             const [streetlightData, setStreetlightData] = useState(null);
@@ -231,23 +168,25 @@
 
             const isAtEnd = timeKeys.length > 0 && currentIndex >= timeKeys.length - 1;
 
+            // Remove Overlay on Mount
+            useEffect(() => {
+                const overlay = document.getElementById('loading-overlay');
+                if(overlay) overlay.style.display = 'none';
+            }, []);
+
             // Fetch Data
             useEffect(() => {
                 const fetchData = async () => {
                     try {
                         setIsLoading(true);
-                        console.log("Fetching CSV...");
-                        
-                        // Fetch CSV
                         const response = await fetch(DATA_URL);
-                        if (!response.ok) throw new Error('Failed to fetch CSV data: ' + response.statusText);
+                        if (!response.ok) throw new Error('Failed to fetch CSV: ' + response.statusText);
                         const csvText = await response.text();
                         
                         Papa.parse(csvText, {
                             header: true,
                             skipEmptyLines: true,
                             complete: (results) => {
-                                console.log("CSV Parsed. Rows:", results.data.length);
                                 const firstRow = results.data[0];
                                 if (firstRow && (firstRow['Point Y'] === undefined || firstRow['Point X'] === undefined || firstRow['InstallDate'] === undefined)) {
                                     setError("CSV format error: Missing columns.");
@@ -257,32 +196,15 @@
                                 setIsLoading(false);
                             },
                             error: (err) => {
-                                console.error("CSV Parse Error", err);
                                 setError(`Parse Error: ${err.message}`);
                                 setIsLoading(false);
                             }
                         });
 
-                        // Fetch Boundary
-                        try {
-                            const boundaryResp = await fetch(BOUNDARY_URL);
-                            if (boundaryResp.ok) {
-                                const boundaryJson = await boundaryResp.json();
-                                setBoundaryData(transformGeoJSON(boundaryJson));
-                            }
-                        } catch (bErr) { console.warn("Boundary fetch failed", bErr); }
-
-                        // Fetch Streetlights
-                        try {
-                            const streetlightsResp = await fetch(STREETLIGHTS_URL);
-                            if (streetlightsResp.ok) {
-                                const slJson = await streetlightsResp.json();
-                                setStreetlightData(transformGeoJSON(slJson));
-                            }
-                        } catch (slErr) { console.warn("Streetlight fetch failed", slErr); }
+                        fetch(BOUNDARY_URL).then(r => r.json()).then(d => setBoundaryData(transformGeoJSON(d))).catch(e => console.warn("Boundary failed", e));
+                        fetch(STREETLIGHTS_URL).then(r => r.json()).then(d => setStreetlightData(transformGeoJSON(d))).catch(e => console.warn("Streetlights failed", e));
 
                     } catch (err) {
-                        console.error("Network Error", err);
                         setError(`Network Error: ${err.message}`);
                         setIsLoading(false);
                     }
@@ -292,62 +214,37 @@
 
             // Init Map
             useEffect(() => {
-                const mapContainer = document.getElementById('map');
-                if (!mapContainer) return;
+                if (!document.getElementById('map')) return;
+                if (mapRef.current) return;
+
+                const map = L.map('map', { preferCanvas: true }).setView([32.22, -110.97], 11);
+
+                map.createPane('boundaryPane'); map.getPane('boundaryPane').style.zIndex = 390;
+                map.createPane('streetlightsPane'); map.getPane('streetlightsPane').style.zIndex = 400;
+                map.createPane('ledPane'); map.getPane('ledPane').style.zIndex = 410;
                 
-                // IMPORTANT: Cleanup existing map instance to prevent "Map container already initialized" crash
-                if (mapRef.current) {
-                    return; // Already initialized
-                }
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                    subdomains: 'abcd', maxZoom: 20
+                }).addTo(map);
 
-                try {
-                    console.log("Initializing Leaflet map...");
-                    const map = L.map('map', { preferCanvas: true }).setView([32.22, -110.97], 11);
+                boundaryLayerRef.current = L.geoJSON(null, {
+                    pane: 'boundaryPane',
+                    style: { color: '#ef4444', weight: 2, opacity: 0.6, fill: false, dashArray: '5, 5' }
+                }).addTo(map);
 
-                    // Panes
-                    map.createPane('boundaryPane'); map.getPane('boundaryPane').style.zIndex = 390;
-                    map.createPane('streetlightsPane'); map.getPane('streetlightsPane').style.zIndex = 400;
-                    map.createPane('ledPane'); map.getPane('ledPane').style.zIndex = 410;
-                    
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-                        subdomains: 'abcd', maxZoom: 20
-                    }).addTo(map);
-
-                    boundaryLayerRef.current = L.geoJSON(null, {
-                        pane: 'boundaryPane',
-                        style: { color: '#ef4444', weight: 2, opacity: 0.6, fill: false, dashArray: '5, 5' }
-                    }).addTo(map);
-
-                    streetlightsLayerRef.current = L.geoJSON(null, {
-                        pane: 'streetlightsPane', 
-                        pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
-                            pane: 'streetlightsPane', radius: 2, fillColor: "#fbbf24", color: "#d97706", weight: 1, opacity: 0.8, fillOpacity: 0.8
-                        })
-                    }).addTo(map);
-                    
-                    markersLayerRef.current = L.layerGroup().addTo(map);
-                    mapRef.current = map;
-                    setIsMapReady(true);
-                    
-                    setTimeout(() => {
-                        if(map) map.invalidateSize();
-                    }, 100);
-
-                } catch (e) {
-                    console.error("Map Initialization Error:", e);
-                    setError("Map failed to load: " + e.message);
-                }
-
-                // Cleanup function
-                return () => {
-                    if (mapRef.current) {
-                        console.log("Cleaning up map instance");
-                        mapRef.current.remove();
-                        mapRef.current = null;
-                        setIsMapReady(false);
-                    }
-                };
+                streetlightsLayerRef.current = L.geoJSON(null, {
+                    pane: 'streetlightsPane', 
+                    pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
+                        pane: 'streetlightsPane', radius: 2, fillColor: "#fbbf24", color: "#d97706", weight: 1, opacity: 0.8, fillOpacity: 0.8
+                    })
+                }).addTo(map);
+                
+                markersLayerRef.current = L.layerGroup().addTo(map);
+                mapRef.current = map;
+                setIsMapReady(true);
+                
+                setTimeout(() => { if(map) map.invalidateSize(); }, 100);
             }, []);
 
             // Auto-fit to Streetlights
@@ -361,20 +258,20 @@
                 }
             }, [streetlightData, isMapReady]);
 
-            // Layer Management
+            // Layer Updates
             useEffect(() => {
-                if (!mapRef.current || !boundaryLayerRef.current) return;
+                if (!mapRef.current) return;
                 boundaryLayerRef.current.clearLayers();
                 if (showBoundary && boundaryData) boundaryLayerRef.current.addData(boundaryData);
             }, [boundaryData, showBoundary, isMapReady]);
 
             useEffect(() => {
-                if (!mapRef.current || !streetlightsLayerRef.current) return;
+                if (!mapRef.current) return;
                 streetlightsLayerRef.current.clearLayers();
                 if (showStreetlights && streetlightData) streetlightsLayerRef.current.addData(streetlightData);
             }, [streetlightData, showStreetlights, isMapReady]);
 
-            // Processing
+            // Process Data
             useEffect(() => {
                 if (rawData.length === 0) return;
                 const groups = {};
