@@ -11,11 +11,13 @@
     <script>
         window.onerror = function(msg, url, line, col, error) {
             const div = document.createElement('div');
-            div.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:20px;z-index:9999;font-family:monospace;';
+            div.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:20px;z-index:9999;font-family:monospace;border-bottom:2px solid white;';
             div.innerHTML = '<strong>App Error:</strong> ' + msg + '<br/><small>' + url + ':' + line + '</small>';
             document.body.appendChild(div);
+            // Don't suppress default error
             return false;
         };
+        console.log("App script loaded. initializing...");
     </script>
 
     <!-- Tailwind CSS (Play CDN) -->
@@ -84,13 +86,27 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        /* Fallback loading message */
+        #fallback-msg {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-size: 1.2rem;
+            color: #666;
+            background: #f9fafb;
+        }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">
+        <div id="fallback-msg">Initializing Application...<br/><span style="font-size:0.8em; margin-top:10px;">(If this message stays, check console for errors)</span></div>
+    </div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
+
+        console.log("React script started executing...");
 
         const DATA_URL = 'https://raw.githubusercontent.com/ry-li/tucson-led-conversion/refs/heads/main/data/LED_Inst.csv';
         const BOUNDARY_URL = 'https://raw.githubusercontent.com/ry-li/tucson-led-conversion/refs/heads/main/data/Jurisdictional_Boundaries_(JURISBND)_tucson.geojson';
@@ -220,15 +236,18 @@
                 const fetchData = async () => {
                     try {
                         setIsLoading(true);
+                        console.log("Fetching CSV...");
+                        
                         // Fetch CSV
                         const response = await fetch(DATA_URL);
-                        if (!response.ok) throw new Error('Failed to fetch CSV data');
+                        if (!response.ok) throw new Error('Failed to fetch CSV data: ' + response.statusText);
                         const csvText = await response.text();
                         
                         Papa.parse(csvText, {
                             header: true,
                             skipEmptyLines: true,
                             complete: (results) => {
+                                console.log("CSV Parsed. Rows:", results.data.length);
                                 const firstRow = results.data[0];
                                 if (firstRow && (firstRow['Point Y'] === undefined || firstRow['Point X'] === undefined || firstRow['InstallDate'] === undefined)) {
                                     setError("CSV format error: Missing columns.");
@@ -238,6 +257,7 @@
                                 setIsLoading(false);
                             },
                             error: (err) => {
+                                console.error("CSV Parse Error", err);
                                 setError(`Parse Error: ${err.message}`);
                                 setIsLoading(false);
                             }
@@ -262,6 +282,7 @@
                         } catch (slErr) { console.warn("Streetlight fetch failed", slErr); }
 
                     } catch (err) {
+                        console.error("Network Error", err);
                         setError(`Network Error: ${err.message}`);
                         setIsLoading(false);
                     }
@@ -271,8 +292,16 @@
 
             // Init Map
             useEffect(() => {
-                if (!document.getElementById('map')) return;
-                if (!mapRef.current) {
+                const mapContainer = document.getElementById('map');
+                if (!mapContainer) return;
+                
+                // IMPORTANT: Cleanup existing map instance to prevent "Map container already initialized" crash
+                if (mapRef.current) {
+                    return; // Already initialized
+                }
+
+                try {
+                    console.log("Initializing Leaflet map...");
                     const map = L.map('map', { preferCanvas: true }).setView([32.22, -110.97], 11);
 
                     // Panes
@@ -300,8 +329,25 @@
                     markersLayerRef.current = L.layerGroup().addTo(map);
                     mapRef.current = map;
                     setIsMapReady(true);
-                    setTimeout(() => map.invalidateSize(), 100);
+                    
+                    setTimeout(() => {
+                        if(map) map.invalidateSize();
+                    }, 100);
+
+                } catch (e) {
+                    console.error("Map Initialization Error:", e);
+                    setError("Map failed to load: " + e.message);
                 }
+
+                // Cleanup function
+                return () => {
+                    if (mapRef.current) {
+                        console.log("Cleaning up map instance");
+                        mapRef.current.remove();
+                        mapRef.current = null;
+                        setIsMapReady(false);
+                    }
+                };
             }, []);
 
             // Auto-fit to Streetlights
@@ -317,13 +363,13 @@
 
             // Layer Management
             useEffect(() => {
-                if (!mapRef.current) return;
+                if (!mapRef.current || !boundaryLayerRef.current) return;
                 boundaryLayerRef.current.clearLayers();
                 if (showBoundary && boundaryData) boundaryLayerRef.current.addData(boundaryData);
             }, [boundaryData, showBoundary, isMapReady]);
 
             useEffect(() => {
-                if (!mapRef.current) return;
+                if (!mapRef.current || !streetlightsLayerRef.current) return;
                 streetlightsLayerRef.current.clearLayers();
                 if (showStreetlights && streetlightData) streetlightsLayerRef.current.addData(streetlightData);
             }, [streetlightData, showStreetlights, isMapReady]);
@@ -418,7 +464,7 @@
                                 Tucson LED Conversion Timeline
                             </h1>
                             <div className="flex flex-col">
-                                <p className="text-xs text-gray-500">{isLoading ? "Fetching data..." : `Visualizing ${rawData.length} total points`}</p>
+                                <p className="text-xs text-gray-500">{isLoading ? "Loading data..." : `Visualizing ${rawData.length} total points`}</p>
                                 <p className="text-xs text-amber-600 font-medium mt-0.5">Note: data incomplete (covers through 11/8/2017, while conversions extend to 2018).</p>
                             </div>
                         </div>
